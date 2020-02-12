@@ -136,7 +136,7 @@ func TestListInitialPods(t *testing.T) {
 
 			seenPodNames := map[string]payload{}
 			evCh := make(chan payload, 1)
-			cb := func(ev PodEvent) {
+			cb := func(ctx context.Context, ev PodEvent) {
 				var ip *net.IPAddr
 				cr, isCreate := ev.(*CreatePod)
 				if isCreate {
@@ -161,7 +161,7 @@ func TestListInitialPods(t *testing.T) {
 
 			p := NewPodWatcher(cs, defaultNamespace, "app=fimbat", cb)
 			p.Logger = &tbWrap{tb: t}
-			npods, vers, err := p.initialPods()
+			npods, vers, err := p.initialPods(context.Background())
 			if err != nil {
 				t.Fatalf("failed to pull initial set of pods: %s", err)
 			}
@@ -341,7 +341,7 @@ func TestListWatchPods(t *testing.T) {
 			firstEventSeen := make(chan struct{})
 			seenPodNames := map[string][]payload{}
 			evCh := make(chan payload, 100)
-			cb := func(ev PodEvent) {
+			cb := func(ctx context.Context, ev PodEvent) {
 				t.Logf("received event type %T: %+[1]v", ev)
 				var ip *net.IPAddr
 				isCreate := false
