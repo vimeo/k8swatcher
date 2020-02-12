@@ -68,7 +68,9 @@ type PodEvent interface {
 }
 
 // EventCallback defines a function for handling pod lifetime events
-type EventCallback func(PodEvent)
+// the context will be a copy of the context passed to the Run() method on
+// PodWatcher.
+type EventCallback func(context.Context, PodEvent)
 
 // CreatePod indicates that a pod has been created and now has an assigned IP
 type CreatePod struct {
@@ -142,7 +144,7 @@ func (p *PodWatcher) listOpts() k8smeta.ListOptions {
 }
 
 // returns the number of pods, resource version and (optionally) an error
-func (p *PodWatcher) initialPods() (int, string, error) {
+func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 	initPods, initListerr := p.cs.CoreV1().Pods(p.k8sNamespace).List(
 		p.listOpts())
 	if initListerr != nil {
@@ -161,7 +163,7 @@ func (p *PodWatcher) initialPods() (int, string, error) {
 		podIP := pod.Status.PodIP
 		ipaddr := net.ParseIP(podIP)
 		for _, cb := range p.cbs {
-			cb(&CreatePod{
+			cb(ctx, &CreatePod{
 				name: pod.Name,
 				IP:   &net.IPAddr{IP: ipaddr},
 			})
@@ -180,7 +182,7 @@ const backoffResetThreshold = time.Hour
 // pods at startup (those callbacks are run inband, so don't do anything
 // expensive in them).
 func (p *PodWatcher) Run(ctx context.Context) error {
-	npods, version, initErr := p.initialPods()
+	npods, version, initErr := p.initialPods(ctx)
 	if initErr != nil {
 		return initErr
 	}
@@ -191,7 +193,7 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 	for i, cb := range p.cbs {
 		ch := make(chan PodEvent, 2*npods+32)
 		cbChans[i] = ch
-		go p.cbRunner(cb, &wg, ch)
+		go p.cbRunner(ctx, cb, &wg, ch)
 	}
 	defer wg.Wait()
 	// Make sure we actually shut down our cbrunning goroutines before we
@@ -240,10 +242,10 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 	}
 }
 
-func (p *PodWatcher) cbRunner(cb EventCallback, wg *sync.WaitGroup, ch <-chan PodEvent) {
+func (p *PodWatcher) cbRunner(ctx context.Context, cb EventCallback, wg *sync.WaitGroup, ch <-chan PodEvent) {
 	defer wg.Done()
 	for ev := range ch {
-		cb(ev)
+		cb(ctx, ev)
 	}
 }
 
