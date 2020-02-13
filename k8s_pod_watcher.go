@@ -207,7 +207,7 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		}
 	}()
 
-	backoff := retry.DefaultBackoff.Clone()
+	backoff := retry.DefaultBackoff()
 
 	lastwatchStart := time.Now()
 	for {
