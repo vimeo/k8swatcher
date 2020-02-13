@@ -166,7 +166,8 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 			cb(ctx, &CreatePod{
 				name: pod.Name,
 				IP:   &net.IPAddr{IP: ipaddr},
-				Def:  &initPods.Items[i],
+				// be sure NOT to use the loop variable here :-)
+				Def: &initPods.Items[i],
 			})
 		}
 	}
