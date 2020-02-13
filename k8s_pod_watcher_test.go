@@ -141,6 +141,10 @@ func TestListInitialPods(t *testing.T) {
 				cr, isCreate := ev.(*CreatePod)
 				if isCreate {
 					ip = cr.IP
+					if cr.Def == nil {
+						t.Errorf("unexpectedly nil pod Definition in create: %v",
+							ev)
+					}
 				}
 
 				evCh <- payload{
@@ -331,6 +335,7 @@ func TestListWatchPods(t *testing.T) {
 				isCreate bool
 				isMod    bool
 				isDel    bool
+				pod      *k8score.Pod
 			}
 
 			evWG := sync.WaitGroup{}
@@ -344,6 +349,8 @@ func TestListWatchPods(t *testing.T) {
 			cb := func(ctx context.Context, ev PodEvent) {
 				t.Logf("received event type %T: %+[1]v", ev)
 				var ip *net.IPAddr
+				var pod *k8score.Pod
+
 				isCreate := false
 				isMod := false
 				isDel := false
@@ -351,9 +358,19 @@ func TestListWatchPods(t *testing.T) {
 				case *CreatePod:
 					isCreate = true
 					ip = cr.IP
+					pod = cr.Def
+					if pod == nil {
+						t.Errorf("unexpectedly nil pod Definition in create: %v",
+							ev)
+					}
 				case *ModPod:
 					isMod = true
 					ip = cr.IP
+					pod = cr.Def
+					if pod == nil {
+						t.Errorf("unexpectedly nil pod Definition in create: %v",
+							ev)
+					}
 				case *DeletePod:
 					isDel = true
 				}
@@ -372,6 +389,7 @@ func TestListWatchPods(t *testing.T) {
 					isCreate: isCreate,
 					isMod:    isMod,
 					isDel:    isDel,
+					pod:      pod,
 				}
 				evWG.Add(-1)
 				if !isDel {
@@ -492,6 +510,14 @@ func TestListWatchPods(t *testing.T) {
 				if !pe.isCreate {
 					t.Errorf("isCreate false on initial-creation event for pod: %s", pi.name)
 				}
+
+				if pi.ip != pe.pod.Status.PodIP {
+					t.Errorf("ip %q not equal to %q", pi.ip, pe.pod.Status.PodIP)
+				}
+				if pi.name != pe.pod.Name {
+					t.Errorf("name %q does not match %q", pi.name, pe.pod.Name)
+				}
+
 			}
 			verifyChangePI := func(pi podInfo) {
 				pes, ok := seenPodNames[pi.name]
@@ -515,6 +541,13 @@ func TestListWatchPods(t *testing.T) {
 				}
 				if !pe.isMod {
 					t.Errorf("isMod false on modification event for pod: %s", pi.name)
+				}
+
+				if pi.ip != pe.pod.Status.PodIP {
+					t.Errorf("ip %q not equal to %q", pi.ip, pe.pod.Status.PodIP)
+				}
+				if pi.name != pe.pod.Name {
+					t.Errorf("name %q does not match %q", pi.name, pe.pod.Name)
 				}
 			}
 			for _, pi := range tbl.pods {

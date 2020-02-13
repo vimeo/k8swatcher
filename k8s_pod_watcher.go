@@ -150,7 +150,7 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 	if initListerr != nil {
 		return -1, "", fmt.Errorf("failed initial pod listing: %w", initListerr)
 	}
-	for _, pod := range initPods.Items {
+	for i, pod := range initPods.Items {
 		switch pod.Status.Phase {
 		// Skip the pods that already exited
 		case k8score.PodFailed, k8score.PodSucceeded:
@@ -166,6 +166,8 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 			cb(ctx, &CreatePod{
 				name: pod.Name,
 				IP:   &net.IPAddr{IP: ipaddr},
+				// be sure NOT to use the loop variable here :-)
+				Def: &initPods.Items[i],
 			})
 		}
 	}
