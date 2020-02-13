@@ -109,8 +109,8 @@ github.com/stretchr/testify v0.0.0-20151208002404-e3a8ff8ce365/go.mod h1:a8OnRci
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
-github.com/vimeo/go-retry v0.0.0-20200212175142-d0ac07487bdd h1:pEvlv21TuVFtqruR+p0uPjMD0I2xwVVnIKcY0fNUyVc=
-github.com/vimeo/go-retry v0.0.0-20200212175142-d0ac07487bdd/go.mod h1:kyxVueimZnS6P2bHFzkX0Omz3trFXl8a861H5P262tU=
+github.com/vimeo/go-retry v1.1.0 h1:gTbkj1F+Yo15QEJvMl6zmzgSAggX91/SoXL5z0rh/II=
+github.com/vimeo/go-retry v1.1.0/go.mod h1:kyxVueimZnS6P2bHFzkX0Omz3trFXl8a861H5P262tU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 h1:VklqNMn3ovrHsnt90PveolxSbWFaJdECFbxSq0Mqo2M=
