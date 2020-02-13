@@ -141,6 +141,10 @@ func TestListInitialPods(t *testing.T) {
 				cr, isCreate := ev.(*CreatePod)
 				if isCreate {
 					ip = cr.IP
+					if cr.Def == nil {
+						t.Errorf("unexpectedly nil pod Definition in create: %v",
+							ev)
+					}
 				}
 
 				evCh <- payload{
@@ -351,9 +355,17 @@ func TestListWatchPods(t *testing.T) {
 				case *CreatePod:
 					isCreate = true
 					ip = cr.IP
+					if cr.Def == nil {
+						t.Errorf("unexpectedly nil pod Definition in create: %v",
+							cr)
+					}
 				case *ModPod:
 					isMod = true
 					ip = cr.IP
+					if cr.Def == nil {
+						t.Errorf("unexpectedly nil pod Definition in mod: %v",
+							cr)
+					}
 				case *DeletePod:
 					isDel = true
 				}
