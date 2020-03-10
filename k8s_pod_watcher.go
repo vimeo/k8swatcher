@@ -25,6 +25,7 @@ import (
 	retry "github.com/vimeo/go-retry"
 
 	k8score "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -112,6 +113,8 @@ type PodWatcher struct {
 
 	cbs []EventCallback
 
+	tracker podTracker
+
 	// Logger is a Logger implementation which is used for logging if non-nil
 	Logger Logger
 }
@@ -129,6 +132,10 @@ func NewPodWatcher(cs kubernetes.Interface, k8sNamespace, selector string, cbs .
 		k8sNamespace: k8sNamespace,
 		selector:     selector,
 		cbs:          cbs,
+		tracker: podTracker{
+			lastStatus:  map[string]*k8score.Pod{},
+			lastVersion: "",
+		},
 	}
 }
 
@@ -141,6 +148,33 @@ func (p *PodWatcher) logf(format string, args ...interface{}) {
 
 func (p *PodWatcher) listOpts() k8smeta.ListOptions {
 	return k8smeta.ListOptions{LabelSelector: p.selector}
+}
+
+// returns the new version ID (or an error)
+func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (string, error) {
+	initPods, initListerr := p.cs.CoreV1().Pods(p.k8sNamespace).List(
+		p.listOpts())
+	if initListerr != nil {
+		return "", fmt.Errorf("failed pod listing: %w", initListerr)
+	}
+	podNames := make([]string, len(initPods.Items))
+	for i, pod := range initPods.Items {
+		podNames[i] = pod.Name
+		if ev := p.tracker.synthesizeEvent(&pod); ev != nil {
+			for _, ch := range cbChans {
+				ch <- ev
+			}
+		}
+	}
+	deadPods := p.tracker.findRemoveDeadPods(podNames)
+	for podName := range deadPods {
+		for _, ch := range cbChans {
+			ch <- &DeletePod{
+				name: podName,
+			}
+		}
+	}
+	return initPods.ResourceVersion, nil
 }
 
 // returns the number of pods, resource version and (optionally) an error
@@ -162,13 +196,15 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 		}
 		podIP := pod.Status.PodIP
 		ipaddr := net.ParseIP(podIP)
+		event := CreatePod{
+			name: pod.Name,
+			IP:   &net.IPAddr{IP: ipaddr},
+			// be sure NOT to use the loop variable here :-)
+			Def: &initPods.Items[i],
+		}
+		p.tracker.recordEvent(&event, initPods.ResourceVersion)
 		for _, cb := range p.cbs {
-			cb(ctx, &CreatePod{
-				name: pod.Name,
-				IP:   &net.IPAddr{IP: ipaddr},
-				// be sure NOT to use the loop variable here :-)
-				Def: &initPods.Items[i],
-			})
+			cb(ctx, &event)
 		}
 	}
 	return len(initPods.Items), initPods.ResourceVersion, nil
@@ -209,13 +245,37 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 
 	backoff := retry.DefaultBackoff()
 
+	// Returns true if the caller should return, false otherwise
+	sleepBackoff := func() bool {
+		timer := time.NewTimer(backoff.Next())
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return true
+		case <-timer.C:
+		}
+		return false
+	}
+
 	lastwatchStart := time.Now()
 	for {
 		watchOpt := p.listOpts()
 		watchOpt.ResourceVersion = version
 		podWatch, watchStartErr := p.cs.CoreV1().Pods(p.k8sNamespace).Watch(watchOpt)
 		if watchStartErr != nil {
-			return fmt.Errorf("failed to startup watcher: %w", watchStartErr)
+			if !k8serrors.IsGone(watchStartErr) {
+				return fmt.Errorf("failed to startup watcher: %w", watchStartErr)
+			}
+			newversion, resyncErr := p.resync(ctx, cbChans)
+			if resyncErr != nil {
+				if sleepBackoff() {
+					return nil
+				}
+				continue
+			}
+			version = newversion
 		}
 
 		rv, err := p.watch(ctx, podWatch, version, cbChans)
@@ -230,15 +290,10 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 			backoff.Reset()
 		}
 
-		timer := time.NewTimer(backoff.Next())
-		select {
-		case <-ctx.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
+		if sleepBackoff() {
 			return nil
-		case <-timer.C:
 		}
+
 		// update lastwatchStart
 		lastwatchStart = time.Now()
 	}
@@ -310,6 +365,10 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 				p.logf("received error event: %s", ev)
 				continue
 			}
+
+			// before sending these events to the client callbacks,
+			// update our internal state-tracker.
+			p.tracker.recordEvent(clientEvent, lastRV)
 
 			for _, ch := range cbChans {
 				ch <- clientEvent
