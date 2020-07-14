@@ -23,7 +23,7 @@ func TestPodTrackerCreateDelete(t *testing.T) {
 	}{
 		{
 			name: "one_ready",
-			pods: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			pods: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}},
 			surviving:    []string{"foobar"},
 			expectedDead: map[string]struct{}{},
@@ -31,35 +31,35 @@ func TestPodTrackerCreateDelete(t *testing.T) {
 		{
 			name: "two_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
 			},
 			surviving:    []string{"foobar"},
-			expectedDead: map[string]struct{}{"foobar2": struct{}{}},
+			expectedDead: map[string]struct{}{"foobar2": {}},
 		},
 		{
 			name: "two_not_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			surviving:    []string{"foobar"},
-			expectedDead: map[string]struct{}{"foobar2": struct{}{}},
+			expectedDead: map[string]struct{}{"foobar2": {}},
 		},
 		{
 			name: "two_not_ready_two_not_running",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			surviving:    []string{"foobar"},
-			expectedDead: map[string]struct{}{"foobar2": struct{}{}},
+			expectedDead: map[string]struct{}{"foobar2": {}},
 		},
 	} {
 		tbl := itbl

@@ -81,37 +81,37 @@ func TestListInitialPods(t *testing.T) {
 	}{
 		{
 			name: "one_ready",
-			pods: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			pods: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}},
 		},
 		{
 			name: "two_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
 			},
 		},
 		{
 			name: "two_not_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 		},
 		{
 			name: "two_not_ready_two_not_running",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar3", ip: "10.42.41.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar3", ip: "10.42.41.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodSucceeded},
-				podInfo{name: "foobar4", ip: "10.42.44.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar4", ip: "10.42.44.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodSucceeded},
 			},
 		},
@@ -225,16 +225,16 @@ func TestListWatchPods(t *testing.T) {
 	}{
 		{
 			name: "one_ready",
-			pods: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			pods: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}},
 			expectedEvents: 1,
 		},
 		{
 			name: "two_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
 			},
 			expectedEvents: 2,
@@ -242,9 +242,9 @@ func TestListWatchPods(t *testing.T) {
 		{
 			name: "two_not_ready",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			expectedEvents: 2,
@@ -252,13 +252,13 @@ func TestListWatchPods(t *testing.T) {
 		{
 			name: "two_not_ready_two_not_running",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar3", ip: "10.42.41.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar3", ip: "10.42.41.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodSucceeded},
-				podInfo{name: "foobar4", ip: "10.42.44.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar4", ip: "10.42.44.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodSucceeded},
 			},
 			expectedEvents: 2,
@@ -266,9 +266,9 @@ func TestListWatchPods(t *testing.T) {
 		{
 			name: "two_not_ready_one_dies",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			deletePods:     []string{"foobar2"},
@@ -277,14 +277,14 @@ func TestListWatchPods(t *testing.T) {
 		{
 			name: "two_not_ready_one_dies_one_create",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			deletePods: []string{"foobar2"},
 			newPods: []podInfo{
-				podInfo{name: "foobar3", ip: "10.42.47.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar3", ip: "10.42.47.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			expectedEvents: 4,
@@ -292,18 +292,18 @@ func TestListWatchPods(t *testing.T) {
 		{
 			name: "one_not_ready_one_pending_one_dies_one_create",
 			pods: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodPending},
 			},
 			deletePods: []string{"foobar2"},
 			newPods: []podInfo{
-				podInfo{name: "foobar3", ip: "10.42.47.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar3", ip: "10.42.47.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 			changePods: []podInfo{
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			},
 
@@ -684,7 +684,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 	}{
 		{
 			name: "one_ready",
-			listRets: []listRetPI{{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			expectedEvents: []PodEvent{&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
 				Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)}},
@@ -693,9 +693,9 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		{
 			name: "two_ready",
 			listRets: []listRetPI{{pi: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning},
 			}}},
 			watchRets: []watchRet{{watch: []watchEvent{}}},
@@ -709,9 +709,9 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		{
 			name: "two_not_ready",
 			listRets: []listRetPI{{pi: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			}}},
 			watchRets: []watchRet{{watch: []watchEvent{}}},
@@ -725,9 +725,9 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		{
 			name: "two_not_ready_two_not_running",
 			listRets: []listRetPI{{pi: []podInfo{
-				podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
-				podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: false, phase: k8score.PodRunning},
 			}}},
 			watchRets: []watchRet{{watch: []watchEvent{}}},
@@ -740,7 +740,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		},
 		{
 			name: "one_ready_then_dies",
-			listRets: []listRetPI{{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			watchRets: []watchRet{{
 				watch: []watchEvent{
@@ -754,7 +754,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		},
 		{
 			name: "one_ready_then_dies_one_reconnect",
-			listRets: []listRetPI{{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			watchRets: []watchRet{
 				{watch: []watchEvent{}},
@@ -769,7 +769,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		},
 		{
 			name: "one_ready_then_dies_one_reconnect_dedup_delete",
-			listRets: []listRetPI{{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			watchRets: []watchRet{
 				{watch: []watchEvent{}},
@@ -788,9 +788,9 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		{
 			name: "one_ready_and_survives_one_reconnect",
 			listRets: []listRetPI{
-				{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning}}},
-				{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning}}},
 			},
 			watchRets: []watchRet{
@@ -806,12 +806,12 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		{
 			name: "one_ready_and_survives_one_reconnect_one_new_then_ready",
 			listRets: []listRetPI{
-				{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning}}},
-				{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning}}},
-				{pi: []podInfo{podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
-					ready: true, phase: k8score.PodRunning}, podInfo{name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
+				{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+					ready: true, phase: k8score.PodRunning}, {name: "foobar2", ip: "10.42.43.41", labels: map[string]string{"app": "fimbat"},
 					ready: true, phase: k8score.PodRunning}}},
 			},
 			watchRets: []watchRet{
