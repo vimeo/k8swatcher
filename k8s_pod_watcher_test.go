@@ -671,6 +671,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		pi        podInfo
 		vers      string
 		eventType watch.EventType
+		errObj    runtime.Object
 	}
 	type watchRet struct {
 		watch []watchEvent
@@ -768,6 +769,21 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 		},
 		{
+			name: "one_ready_then_dies_one_reconnect_change_error",
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				ready: true, phase: k8score.PodRunning}}}, {pi: []podInfo{}}},
+			watchRets: []watchRet{
+				{watch: []watchEvent{{errObj: &k8smeta.Status{Code: 410, Reason: k8smeta.StatusReasonGone}, eventType: watch.Error}}},
+				{err: goneErr{}},
+				{watch: []watchEvent{}},
+			},
+			expectedEvents: []PodEvent{
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)},
+				&DeletePod{name: "foobar"},
+			},
+		},
+		{
 			name: "one_ready_then_dies_one_reconnect_dedup_delete",
 			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
@@ -776,7 +792,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				{err: goneErr{}},
 				{watch: []watchEvent{
 					{pi: podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
-						ready: false, phase: k8score.PodFailed}},
+						ready: false, phase: k8score.PodFailed}, eventType: watch.Modified},
 				}},
 			},
 			expectedEvents: []PodEvent{
@@ -877,11 +893,16 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				// all events
 				fw := watch.NewFakeWithChanSize(len(eventSlice), false)
 				for _, ev := range eventSlice {
-					p := genPod(ev.pi.name, ev.pi.ip,
-						ev.pi.labels, ev.pi.ready,
-						ev.pi.phase)
-					p.ResourceVersion = ev.vers
-					fw.Action(ev.eventType, p)
+					switch ev.eventType {
+					case watch.Added, watch.Modified, watch.Deleted:
+						p := genPod(ev.pi.name, ev.pi.ip,
+							ev.pi.labels, ev.pi.ready,
+							ev.pi.phase)
+						p.ResourceVersion = ev.vers
+						fw.Action(ev.eventType, p)
+					case watch.Error:
+						fw.Action(ev.eventType, ev.errObj)
+					}
 				}
 				// Stop the watcher so it closes the internal
 				// channel
