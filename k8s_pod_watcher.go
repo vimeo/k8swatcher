@@ -214,6 +214,8 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 // channel was closed.
 var ErrResultsClosed = errors.New("k8s result channel closed")
 
+var errVersionGone = errors.New("k8s GONE status; resync required")
+
 const backoffResetThreshold = time.Hour
 
 // Run starts a watcher loop, will generate CreatePod events for all existing
@@ -279,7 +281,9 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		}
 
 		rv, err := p.watch(ctx, podWatch, version, cbChans)
-		if err != ErrResultsClosed {
+		switch err {
+		case ErrResultsClosed, errVersionGone:
+		default:
 			return err
 		}
 		version = rv
@@ -306,6 +310,14 @@ func (p *PodWatcher) cbRunner(ctx context.Context, cb EventCallback, wg *sync.Wa
 	}
 }
 
+func errorEventIsGone(ev watch.Event) bool {
+	errObj, isStatus := ev.Object.(*k8smeta.Status)
+	if !isStatus {
+		return false
+	}
+	return errObj.Reason == k8smeta.StatusReasonGone
+}
+
 func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv string, cbChans []chan<- PodEvent) (string, error) {
 	lastRV := rv
 	resCh := podWatch.ResultChan()
@@ -325,6 +337,16 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 			if !ok {
 				if ev.Type == watch.Error {
 					p.logf("received error event: %s", ev)
+					// if the error has reason "Gone",
+					// return and let the outr loop
+					// reconnect.
+					if errorEventIsGone(ev) {
+						podWatch.Stop()
+						// drain the result channel then exit
+						for range resCh {
+						}
+						return lastRV, errVersionGone
+					}
 				}
 				continue
 			}
