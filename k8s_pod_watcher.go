@@ -261,6 +261,26 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		return false
 	}
 
+	type resyncAction uint8
+	const (
+		resyncReturn resyncAction = iota
+		resyncContinueLoop
+		resyncSuccess
+	)
+
+	// returns whether to keep looping
+	resync := func() resyncAction {
+		newversion, resyncErr := p.resync(ctx, cbChans)
+		if resyncErr != nil {
+			if sleepBackoff() {
+				return resyncReturn
+			}
+			return resyncContinueLoop
+		}
+		version = newversion
+		return resyncSuccess
+	}
+
 	lastwatchStart := time.Now()
 	for {
 		watchOpt := p.listOpts()
@@ -270,19 +290,26 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 			if !k8serrors.IsGone(watchStartErr) {
 				return fmt.Errorf("failed to startup watcher: %w", watchStartErr)
 			}
-			newversion, resyncErr := p.resync(ctx, cbChans)
-			if resyncErr != nil {
-				if sleepBackoff() {
-					return nil
-				}
+			switch resync() {
+			case resyncReturn:
+				return nil
+			case resyncContinueLoop:
 				continue
+			case resyncSuccess:
 			}
-			version = newversion
 		}
 
 		rv, err := p.watch(ctx, podWatch, version, cbChans)
 		switch err {
-		case ErrResultsClosed, errVersionGone:
+		case ErrResultsClosed:
+		case errVersionGone:
+			switch resync() {
+			case resyncReturn:
+				return nil
+			case resyncContinueLoop:
+				continue
+			case resyncSuccess:
+			}
 		default:
 			return err
 		}
