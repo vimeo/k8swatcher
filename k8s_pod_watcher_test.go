@@ -769,6 +769,20 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 		},
 		{
+			name: "one_ready_then_dies_one_reconnect_change_error_no_watch_gone_error",
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				ready: true, phase: k8score.PodRunning}}}, {pi: []podInfo{}}},
+			watchRets: []watchRet{
+				{watch: []watchEvent{{errObj: &k8smeta.Status{Code: 410, Reason: k8smeta.StatusReasonGone}, eventType: watch.Error}}},
+				{watch: []watchEvent{}},
+			},
+			expectedEvents: []PodEvent{
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)},
+				&DeletePod{name: "foobar"},
+			},
+		},
+		{
 			name: "one_ready_then_dies_one_reconnect_change_error",
 			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}, {pi: []podInfo{}}},
@@ -784,12 +798,43 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 		},
 		{
+			name: "one_ready_then_dies_one_reconnect_change_error_no_watch_gone_error",
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				ready: true, phase: k8score.PodRunning}}}, {pi: []podInfo{}}},
+			watchRets: []watchRet{
+				{watch: []watchEvent{{errObj: &k8smeta.Status{Code: 410, Reason: k8smeta.StatusReasonGone}, eventType: watch.Error}}},
+				{watch: []watchEvent{}},
+			},
+			expectedEvents: []PodEvent{
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)},
+				&DeletePod{name: "foobar"},
+			},
+		},
+		{
 			name: "one_ready_then_dies_one_reconnect_dedup_delete",
 			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			watchRets: []watchRet{
 				{watch: []watchEvent{}},
 				{err: goneErr{}},
+				{watch: []watchEvent{
+					{pi: podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+						ready: false, phase: k8score.PodFailed}, eventType: watch.Modified},
+				}},
+			},
+			expectedEvents: []PodEvent{
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)},
+				&DeletePod{name: "foobar"},
+			},
+		},
+		{
+			name: "one_ready_then_dies_one_reconnect_dedup_delete_no_watch_gone_error",
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				ready: true, phase: k8score.PodRunning}}}},
+			watchRets: []watchRet{
+				{watch: []watchEvent{{errObj: &k8smeta.Status{Code: 410, Reason: k8smeta.StatusReasonGone}, eventType: watch.Error}}},
 				{watch: []watchEvent{
 					{pi: podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 						ready: false, phase: k8score.PodFailed}, eventType: watch.Modified},
