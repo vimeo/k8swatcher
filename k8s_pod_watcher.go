@@ -302,6 +302,7 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		rv, err := p.watch(ctx, podWatch, version, cbChans)
 		switch err {
 		case ErrResultsClosed:
+			version = rv
 		case errVersionGone:
 			switch resync() {
 			case resyncReturn:
@@ -313,7 +314,6 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		default:
 			return err
 		}
-		version = rv
 
 		// If it's been a while, reset the backoff so we don't wait too
 		// long after things have been humming for an hour.
