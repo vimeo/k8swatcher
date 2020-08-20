@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -272,11 +273,13 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 	resync := func() resyncAction {
 		newversion, resyncErr := p.resync(ctx, cbChans)
 		if resyncErr != nil {
+			p.logf("resync failed: %s", resyncErr)
 			if sleepBackoff() {
 				return resyncReturn
 			}
 			return resyncContinueLoop
 		}
+		p.logf("resync succeeded; new version: %q (old %q)", newversion, version)
 		version = newversion
 		return resyncSuccess
 	}
@@ -287,7 +290,13 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		watchOpt.ResourceVersion = version
 		podWatch, watchStartErr := p.cs.CoreV1().Pods(p.k8sNamespace).Watch(watchOpt)
 		if watchStartErr != nil {
-			if !k8serrors.IsGone(watchStartErr) {
+			switch t := watchStartErr.(type) {
+			case k8serrors.APIStatus:
+				if t.Status().Code != http.StatusGone {
+					return fmt.Errorf("failed to startup watcher with status code %d: %w",
+						t.Status().Code, watchStartErr)
+				}
+			default:
 				return fmt.Errorf("failed to startup watcher: %w", watchStartErr)
 			}
 			switch resync() {
@@ -302,6 +311,7 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		rv, err := p.watch(ctx, podWatch, version, cbChans)
 		switch err {
 		case ErrResultsClosed:
+			version = rv
 		case errVersionGone:
 			switch resync() {
 			case resyncReturn:
@@ -313,7 +323,6 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 		default:
 			return err
 		}
-		version = rv
 
 		// If it's been a while, reset the backoff so we don't wait too
 		// long after things have been humming for an hour.
@@ -342,7 +351,7 @@ func errorEventIsGone(ev watch.Event) bool {
 	if !isStatus {
 		return false
 	}
-	return errObj.Reason == k8smeta.StatusReasonGone
+	return errObj.Code == http.StatusGone
 }
 
 func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv string, cbChans []chan<- PodEvent) (string, error) {
@@ -364,8 +373,8 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 			if !ok {
 				if ev.Type == watch.Error {
 					p.logf("received error event: %s", ev)
-					// if the error has reason "Gone",
-					// return and let the outr loop
+					// if the error has status code "Gone" (410),
+					// return and let the outer loop
 					// reconnect.
 					if errorEventIsGone(ev) {
 						podWatch.Stop()
