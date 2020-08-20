@@ -17,6 +17,7 @@ package k8swatcher
 import (
 	"context"
 	"net"
+	"net/http"
 	"reflect"
 	"sync"
 	"testing"
@@ -614,7 +615,7 @@ func (goneErr) Error() string {
 }
 
 func (goneErr) Status() k8smeta.Status {
-	return k8smeta.Status{Reason: k8smeta.StatusReasonGone}
+	return k8smeta.Status{Reason: k8smeta.StatusReasonGone, Code: http.StatusGone}
 }
 
 type dummyPods struct {
