@@ -273,11 +273,13 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 	resync := func() resyncAction {
 		newversion, resyncErr := p.resync(ctx, cbChans)
 		if resyncErr != nil {
+			p.logf("resync failed: %s", resyncErr)
 			if sleepBackoff() {
 				return resyncReturn
 			}
 			return resyncContinueLoop
 		}
+		p.logf("resync succeeded; new version: %q (old %q)", newversion, version)
 		version = newversion
 		return resyncSuccess
 	}
