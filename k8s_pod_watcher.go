@@ -64,9 +64,15 @@ func InitKubernetesExtraClusterClient(configPath, context string) (kubernetes.In
 	return kubernetes.NewForConfig(client)
 }
 
+// ResourceVersion is the version string associated with the object/event. K8s
+// documents that it is only valid to compare it for equality, and hence not
+// otherwise sortable.
+type ResourceVersion string
+
 // PodEvent is the interface type for events being returned over a channel
 type PodEvent interface {
 	PodName() string
+	ResourceVersion() ResourceVersion
 }
 
 // EventCallback defines a function for handling pod lifetime events
@@ -77,6 +83,7 @@ type EventCallback func(context.Context, PodEvent)
 // CreatePod indicates that a pod has been created and now has an assigned IP
 type CreatePod struct {
 	name string
+	rv   ResourceVersion
 	IP   *net.IPAddr
 	// The new Pod's definition
 	Def *k8score.Pod
@@ -85,26 +92,37 @@ type CreatePod struct {
 // PodName implements PodEvent
 func (c *CreatePod) PodName() string { return c.name }
 
+// ResourceVersion implements PodEvent
+func (c *CreatePod) ResourceVersion() ResourceVersion { return c.rv }
+
 // ModPod indicates a change in a pod's status or definition (anything that
 // isn't a creation or deletion)
 type ModPod struct {
 	name string
+	rv   ResourceVersion
 	IP   *net.IPAddr
 	// The new Pod definition
 	Def *k8score.Pod
 }
 
 // PodName implements PodEvent
-func (c *ModPod) PodName() string { return c.name }
+func (m *ModPod) PodName() string { return m.name }
+
+// ResourceVersion implements PodEvent
+func (m *ModPod) ResourceVersion() ResourceVersion { return m.rv }
 
 // DeletePod indicates that a pod has been destroyed (or is shutting down) and
 // should no longer be watched.
 type DeletePod struct {
 	name string
+	rv   ResourceVersion
 }
 
 // PodName implements PodEvent
-func (c *DeletePod) PodName() string { return c.name }
+func (d *DeletePod) PodName() string { return d.name }
+
+// ResourceVersion implements PodEvent
+func (d *DeletePod) ResourceVersion() ResourceVersion { return d.rv }
 
 // PodWatcher uses the k8s API to watch for new/deleted k8s pods
 type PodWatcher struct {
@@ -172,6 +190,7 @@ func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (str
 		for _, ch := range cbChans {
 			ch <- &DeletePod{
 				name: podName,
+				rv:   ResourceVersion(initPods.ResourceVersion),
 			}
 		}
 	}
@@ -199,11 +218,12 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 		ipaddr := net.ParseIP(podIP)
 		event := CreatePod{
 			name: pod.Name,
+			rv:   ResourceVersion(initPods.ResourceVersion),
 			IP:   &net.IPAddr{IP: ipaddr},
 			// be sure NOT to use the loop variable here :-)
 			Def: &initPods.Items[i],
 		}
-		p.tracker.recordEvent(&event, initPods.ResourceVersion)
+		p.tracker.recordEvent(&event)
 		for _, cb := range p.cbs {
 			cb(ctx, &event)
 		}
@@ -395,6 +415,7 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 			case watch.Added:
 				clientEvent = &CreatePod{
 					name: podName,
+					rv:   ResourceVersion(lastRV),
 					IP: &net.IPAddr{
 						IP:   ipaddr,
 						Zone: "",
@@ -404,6 +425,7 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 			case watch.Modified:
 				clientEvent = &ModPod{
 					name: podName,
+					rv:   ResourceVersion(lastRV),
 					IP: &net.IPAddr{
 						IP:   ipaddr,
 						Zone: "",
@@ -413,6 +435,7 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 			case watch.Deleted:
 				clientEvent = &DeletePod{
 					name: podName,
+					rv:   ResourceVersion(lastRV),
 				}
 			case watch.Bookmark:
 				// we're not using Bookmarks
@@ -426,7 +449,7 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 
 			// before sending these events to the client callbacks,
 			// update our internal state-tracker.
-			p.tracker.recordEvent(clientEvent, lastRV)
+			p.tracker.recordEvent(clientEvent)
 
 			for _, ch := range cbChans {
 				ch <- clientEvent
