@@ -68,15 +68,17 @@ func TestPodTrackerCreateDelete(t *testing.T) {
 			tracker := podTracker{
 				lastStatus: map[string]*k8score.Pod{},
 			}
+			rv := "fizzle"
 			for z, pi := range tbl.pods {
 				initPods[z] = genPod(pi.name, pi.ip, pi.labels, pi.ready, pi.phase)
 				ip := net.ParseIP(pi.ip)
 				ce := CreatePod{
 					name: pi.name,
+					rv:   ResourceVersion(rv),
 					IP:   &net.IPAddr{IP: ip},
 					Def:  initPods[z],
 				}
-				tracker.recordEvent(&ce, "fimbat")
+				tracker.recordEvent(&ce)
 			}
 
 			deadPods := tracker.findRemoveDeadPods(tbl.surviving)

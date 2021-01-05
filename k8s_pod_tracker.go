@@ -9,12 +9,12 @@ import (
 
 type podTracker struct {
 	lastStatus  map[string]*k8score.Pod
-	lastVersion string
+	lastVersion ResourceVersion
 }
 
-func (p *podTracker) recordEvent(ev PodEvent, vers string) {
+func (p *podTracker) recordEvent(ev PodEvent) {
 
-	p.lastVersion = vers
+	p.lastVersion = ev.ResourceVersion()
 
 	switch pe := ev.(type) {
 	case *CreatePod:
@@ -40,7 +40,7 @@ func (p *podTracker) synthesizeEvent(pod *k8score.Pod) PodEvent {
 	p.lastStatus[podName] = pod
 
 	if pod.ResourceVersion != "" {
-		p.lastVersion = pod.ResourceVersion
+		p.lastVersion = ResourceVersion(pod.ResourceVersion)
 	}
 
 	if present {
@@ -60,6 +60,7 @@ func (p *podTracker) synthesizeEvent(pod *k8score.Pod) PodEvent {
 	}
 	return &CreatePod{
 		name: podName,
+		rv:   ResourceVersion(p.lastVersion),
 		IP: &net.IPAddr{
 			IP:   ipaddr,
 			Zone: "",
