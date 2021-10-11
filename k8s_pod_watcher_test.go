@@ -630,12 +630,12 @@ type dummyPods struct {
 	listRets []listRet
 }
 
-func (d *dummyPods) List(opts k8smeta.ListOptions) (*k8score.PodList, error) {
+func (d *dummyPods) List(ctx context.Context, opts k8smeta.ListOptions) (*k8score.PodList, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
 	// If the list is empty, just fall back to the fake we're wrapping
 	if len(d.listRets) == 0 {
-		return d.PodInterface.List(opts)
+		return d.PodInterface.List(ctx, opts)
 	}
 	front := d.listRets[0]
 	d.listRets = d.listRets[1:]
@@ -643,12 +643,12 @@ func (d *dummyPods) List(opts k8smeta.ListOptions) (*k8score.PodList, error) {
 	return front.podList, front.err
 }
 
-func (d *dummyPods) Watch(opts k8smeta.ListOptions) (watch.Interface, error) {
+func (d *dummyPods) Watch(ctx context.Context, opts k8smeta.ListOptions) (watch.Interface, error) {
 	d.l.Lock()
 	defer d.l.Unlock()
 	// If the list is empty, just fall back to the fake we're wrapping
 	if len(d.watchRets) == 0 {
-		return d.PodInterface.Watch(opts)
+		return d.PodInterface.Watch(ctx, opts)
 	}
 	front := d.watchRets[0]
 	d.watchRets = d.watchRets[1:]
