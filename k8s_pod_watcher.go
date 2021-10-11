@@ -172,7 +172,7 @@ func (p *PodWatcher) listOpts() k8smeta.ListOptions {
 // returns the new version ID (or an error)
 func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (string, error) {
 	initPods, initListerr := p.cs.CoreV1().Pods(p.k8sNamespace).List(
-		p.listOpts())
+		ctx, p.listOpts())
 	if initListerr != nil {
 		return "", fmt.Errorf("failed pod listing: %w", initListerr)
 	}
@@ -200,7 +200,7 @@ func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (str
 // returns the number of pods, resource version and (optionally) an error
 func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 	initPods, initListerr := p.cs.CoreV1().Pods(p.k8sNamespace).List(
-		p.listOpts())
+		ctx, p.listOpts())
 	if initListerr != nil {
 		return -1, "", fmt.Errorf("failed initial pod listing: %w", initListerr)
 	}
@@ -308,7 +308,7 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 	for {
 		watchOpt := p.listOpts()
 		watchOpt.ResourceVersion = version
-		podWatch, watchStartErr := p.cs.CoreV1().Pods(p.k8sNamespace).Watch(watchOpt)
+		podWatch, watchStartErr := p.cs.CoreV1().Pods(p.k8sNamespace).Watch(ctx, watchOpt)
 		if watchStartErr != nil {
 			switch t := watchStartErr.(type) {
 			case k8serrors.APIStatus:
