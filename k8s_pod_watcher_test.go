@@ -18,6 +18,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sync"
 	"testing"
@@ -760,6 +761,22 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				ready: true, phase: k8score.PodRunning}}}},
 			watchRets: []watchRet{
 				{watch: []watchEvent{}},
+				{err: goneErr{}},
+				{watch: []watchEvent{}},
+			},
+			expectedEvents: []PodEvent{
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)},
+				&DeletePod{name: "foobar"},
+			},
+		},
+		{
+			name: "one_ready_then_dies_one_reconnect_network_error",
+			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+				ready: true, phase: k8score.PodRunning}}}},
+			watchRets: []watchRet{
+				{watch: []watchEvent{}},
+				{err: &url.Error{Op: "foo", Err: &net.OpError{}}},
 				{err: goneErr{}},
 				{watch: []watchEvent{}},
 			},

@@ -317,6 +317,14 @@ func (p *PodWatcher) Run(ctx context.Context) error {
 						t.Status().Code, watchStartErr)
 				}
 			default:
+				noe := (*net.OpError)(nil)
+				if errors.As(watchStartErr, &noe) {
+					// If it's a connection error of some sort, we want to backoff and retry
+					if sleepBackoff() {
+						return nil
+					}
+					continue
+				}
 				return fmt.Errorf("failed to startup watcher: %w", watchStartErr)
 			}
 			switch resync() {
