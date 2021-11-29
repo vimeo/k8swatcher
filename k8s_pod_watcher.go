@@ -73,6 +73,10 @@ type ResourceVersion string
 type PodEvent interface {
 	PodName() string
 	ResourceVersion() ResourceVersion
+	// Continues indicates that the next event will use the same
+	// ResourceVersion because this event is part of either the same
+	// initial-state-dump or resync.
+	Continues() bool
 }
 
 // EventCallback defines a function for handling pod lifetime events
@@ -87,6 +91,8 @@ type CreatePod struct {
 	IP   *net.IPAddr
 	// The new Pod's definition
 	Def *k8score.Pod
+
+	continues bool
 }
 
 // PodName implements PodEvent
@@ -94,6 +100,11 @@ func (c *CreatePod) PodName() string { return c.name }
 
 // ResourceVersion implements PodEvent
 func (c *CreatePod) ResourceVersion() ResourceVersion { return c.rv }
+
+// Continues indicates that the next event will use the same
+// ResourceVersion because this event is part of either the same
+// initial-state-dump or resync.
+func (c *CreatePod) Continues() bool { return c.continues }
 
 // ModPod indicates a change in a pod's status or definition (anything that
 // isn't a creation or deletion)
@@ -103,6 +114,8 @@ type ModPod struct {
 	IP   *net.IPAddr
 	// The new Pod definition
 	Def *k8score.Pod
+
+	continues bool
 }
 
 // PodName implements PodEvent
@@ -111,11 +124,18 @@ func (m *ModPod) PodName() string { return m.name }
 // ResourceVersion implements PodEvent
 func (m *ModPod) ResourceVersion() ResourceVersion { return m.rv }
 
+// Continues indicates that the next event will use the same
+// ResourceVersion because this event is part of either the same
+// initial-state-dump or resync.
+func (m *ModPod) Continues() bool { return m.continues }
+
 // DeletePod indicates that a pod has been destroyed (or is shutting down) and
 // should no longer be watched.
 type DeletePod struct {
 	name string
 	rv   ResourceVersion
+
+	continues bool
 }
 
 // PodName implements PodEvent
@@ -123,6 +143,10 @@ func (d *DeletePod) PodName() string { return d.name }
 
 // ResourceVersion implements PodEvent
 func (d *DeletePod) ResourceVersion() ResourceVersion { return d.rv }
+
+// Continues indicates that the next event will use the same
+// ResourceVersion because this event is part of the same resync.
+func (d *DeletePod) Continues() bool { return d.continues }
 
 // PodWatcher uses the k8s API to watch for new/deleted k8s pods
 type PodWatcher struct {
@@ -169,6 +193,19 @@ func (p *PodWatcher) listOpts() k8smeta.ListOptions {
 	return k8smeta.ListOptions{LabelSelector: p.selector}
 }
 
+func setContinues(ev PodEvent, continues bool) {
+	switch pe := ev.(type) {
+	case *CreatePod:
+		pe.continues = continues
+	case *ModPod:
+		pe.continues = continues
+	case *DeletePod:
+		pe.continues = continues
+	default:
+		panic(fmt.Errorf("unhandled type %T", ev))
+	}
+}
+
 // returns the new version ID (or an error)
 func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (string, error) {
 	initPods, initListerr := p.cs.CoreV1().Pods(p.k8sNamespace).List(
@@ -177,20 +214,39 @@ func (p *PodWatcher) resync(ctx context.Context, cbChans []chan<- PodEvent) (str
 		return "", fmt.Errorf("failed pod listing: %w", initListerr)
 	}
 	podNames := make([]string, len(initPods.Items))
+
+	synthPodEvents := make([]PodEvent, 0, len(initPods.Items))
 	for i, pod := range initPods.Items {
 		podNames[i] = pod.Name
-		if ev := p.tracker.synthesizeEvent(&pod); ev != nil {
-			for _, ch := range cbChans {
-				ch <- ev
-			}
+		if ev := p.tracker.synthesizeEvent(&initPods.Items[i]); ev != nil {
+			synthPodEvents = append(synthPodEvents, ev)
 		}
 	}
+
+	// We need to know how many pods died in order to set continues properly on the non-delete
+	// events, but we can't update the tracker state until after we've synthesized all the other
+	// events.
 	deadPods := p.tracker.findRemoveDeadPods(podNames)
+
+	for i, ev := range synthPodEvents {
+		// All events other than the last one (possibly a DeletePod) must set continues to
+		// true so the client can tell when it has a consistent view for the relevant
+		// ResourceVersion.
+		continues := len(deadPods) > 0 || i < len(synthPodEvents)-1
+		setContinues(ev, continues)
+		for _, ch := range cbChans {
+			ch <- ev
+		}
+	}
+
+	bodyCount := 0
 	for podName := range deadPods {
+		bodyCount++
 		for _, ch := range cbChans {
 			ch <- &DeletePod{
-				name: podName,
-				rv:   ResourceVersion(initPods.ResourceVersion),
+				name:      podName,
+				rv:        ResourceVersion(initPods.ResourceVersion),
+				continues: bodyCount < len(deadPods),
 			}
 		}
 	}
@@ -222,6 +278,8 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 			IP:   &net.IPAddr{IP: ipaddr},
 			// be sure NOT to use the loop variable here :-)
 			Def: &initPods.Items[i],
+			// only the last event sets continues to false
+			continues: i < len(initPods.Items)-1,
 		}
 		p.tracker.recordEvent(&event)
 		for _, cb := range p.cbs {
@@ -428,7 +486,8 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 						IP:   ipaddr,
 						Zone: "",
 					},
-					Def: pod,
+					Def:       pod,
+					continues: false,
 				}
 			case watch.Modified:
 				clientEvent = &ModPod{
@@ -438,12 +497,14 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 						IP:   ipaddr,
 						Zone: "",
 					},
-					Def: pod,
+					Def:       pod,
+					continues: false,
 				}
 			case watch.Deleted:
 				clientEvent = &DeletePod{
-					name: podName,
-					rv:   ResourceVersion(lastRV),
+					name:      podName,
+					rv:        ResourceVersion(lastRV),
+					continues: false,
 				}
 			case watch.Bookmark:
 				// we're not using Bookmarks
