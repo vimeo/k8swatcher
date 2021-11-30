@@ -47,7 +47,7 @@ func InitKubernetesInClusterClient() (kubernetes.Interface, error) {
 	// creates a kubernetes clientset with the config initialized above
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return clientset, fmt.Errorf("Error initializing kubernetes client. Error: %s", err)
+		return clientset, fmt.Errorf("error initializing kubernetes client. Error: %s", err)
 	}
 	return clientset, nil
 }
@@ -473,7 +473,7 @@ func (p *PodWatcher) watch(ctx context.Context, podWatch watch.Interface, rv str
 				continue
 			}
 			lastRV = pod.ResourceVersion
-			podName := pod.ObjectMeta.Name
+			podName := pod.Name
 			podIP := pod.Status.PodIP
 			ipaddr := net.ParseIP(podIP)
 			var clientEvent PodEvent
