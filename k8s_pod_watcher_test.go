@@ -377,6 +377,11 @@ func TestListWatchPods(t *testing.T) {
 					}
 				case *DeletePod:
 					isDel = true
+				case *InitialListComplete:
+					// this event carries no state, so just return
+					return
+				default:
+					t.Fatalf("unhandled event type: %T", ev)
 				}
 
 				// close the firstEventSeen channel if it's not
@@ -686,11 +691,17 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		expectedEvents []PodEvent
 	}{
 		{
+			name:           "none_exist",
+			listRets:       []listRetPI{},
+			expectedEvents: []PodEvent{&InitialListComplete{}},
+			watchRets:      []watchRet{{watch: []watchEvent{}}},
+		},
+		{
 			name: "one_ready",
 			listRets: []listRetPI{{pi: []podInfo{{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
 				ready: true, phase: k8score.PodRunning}}}},
 			expectedEvents: []PodEvent{&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-				Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning)}},
+				Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true}, &InitialListComplete{}},
 			watchRets: []watchRet{{watch: []watchEvent{}}},
 		},
 		{
@@ -706,7 +717,7 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
 					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
 				&CreatePod{name: "foobar2", IP: &net.IPAddr{IP: net.IPv4(10, 42, 43, 41)},
-					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true}, &InitialListComplete{},
 			},
 		},
 		{
@@ -722,7 +733,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
 					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: true},
 				&CreatePod{name: "foobar2", IP: &net.IPAddr{IP: net.IPv4(10, 42, 43, 41)},
-					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: false},
+					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 			},
 		},
 		{
@@ -738,7 +750,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
 					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: true},
 				&CreatePod{name: "foobar2", IP: &net.IPAddr{IP: net.IPv4(10, 42, 43, 41)},
-					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: false},
+					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 			},
 		},
 		{
@@ -751,7 +764,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 						ready: false, phase: k8score.PodFailed}, eventType: watch.Deleted}}}},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar", continues: false},
 			},
 		},
@@ -766,7 +780,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -782,7 +797,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -796,7 +812,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -811,7 +828,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -825,7 +843,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -843,7 +862,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -860,7 +880,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&DeletePod{name: "foobar"},
 			},
 		},
@@ -879,6 +900,25 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
+			},
+		},
+		{
+			name:     "none_exist_and_later_created_becomes_ready",
+			listRets: []listRetPI{},
+			watchRets: []watchRet{
+				{watch: []watchEvent{
+					{pi: podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+						ready: false, phase: k8score.PodRunning}, eventType: watch.Added},
+					{pi: podInfo{name: "foobar", ip: "10.42.42.42", labels: map[string]string{"app": "fimbat"},
+						ready: true, phase: k8score.PodRunning}, eventType: watch.Modified},
+				}}},
+			expectedEvents: []PodEvent{
+				&InitialListComplete{},
+				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: false},
+				&ModPod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
 					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
 			},
 		},
@@ -905,7 +945,8 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 			},
 			expectedEvents: []PodEvent{
 				&CreatePod{name: "foobar", IP: &net.IPAddr{IP: net.IPv4(10, 42, 42, 42)},
-					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: false},
+					Def: genPod("foobar", "10.42.42.42", map[string]string{"app": "fimbat"}, true, k8score.PodRunning), continues: true},
+				&InitialListComplete{},
 				&CreatePod{name: "foobar2", IP: &net.IPAddr{IP: net.IPv4(10, 42, 43, 41)},
 					Def: genPod("foobar2", "10.42.43.41", map[string]string{"app": "fimbat"}, false, k8score.PodRunning), continues: false},
 				&ModPod{name: "foobar2", IP: &net.IPAddr{IP: net.IPv4(10, 42, 43, 41)},

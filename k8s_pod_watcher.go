@@ -148,6 +148,28 @@ func (d *DeletePod) ResourceVersion() ResourceVersion { return d.rv }
 // ResourceVersion because this event is part of the same resync.
 func (d *DeletePod) Continues() bool { return d.continues }
 
+// InitialListComplete is a synthetic event indicating that the initial list of
+// pods matching the specified label matcher is complete (all previous
+// `CreatePod` events' callbacks have completed).
+type InitialListComplete struct {
+	rv ResourceVersion
+}
+
+// PodName returns an empty string because it's not really a single pod event.
+func (i *InitialListComplete) PodName() string { return "" }
+
+// ResourceVersion returns the ResourceVersion of the initial list
+func (i *InitialListComplete) ResourceVersion() ResourceVersion { return i.rv }
+
+// Continues indicates that the next event will use the same
+// ResourceVersion because this event is part of either the same
+// initial-state-dump or resync.
+// This is always the last event of the initial state-dump, so it always has
+// Continues set to false.
+func (i *InitialListComplete) Continues() bool {
+	return false
+}
+
 // PodWatcher uses the k8s API to watch for new/deleted k8s pods
 type PodWatcher struct {
 	cs           kubernetes.Interface
@@ -278,13 +300,18 @@ func (p *PodWatcher) initialPods(ctx context.Context) (int, string, error) {
 			IP:   &net.IPAddr{IP: ipaddr},
 			// be sure NOT to use the loop variable here :-)
 			Def: &initPods.Items[i],
-			// only the last event sets continues to false
-			continues: i < len(initPods.Items)-1,
+			// only the last event sets continues to false (and
+			// that'll be the InitialListComplete event)
+			continues: true,
 		}
 		p.tracker.recordEvent(&event)
 		for _, cb := range p.cbs {
 			cb(ctx, &event)
 		}
+	}
+	// Inform all the callbacks that the full-state dump is complete.
+	for _, cb := range p.cbs {
+		cb(ctx, &InitialListComplete{rv: ResourceVersion(initPods.ResourceVersion)})
 	}
 	return len(initPods.Items), initPods.ResourceVersion, nil
 }
