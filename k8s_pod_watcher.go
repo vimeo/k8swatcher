@@ -84,6 +84,18 @@ type PodEvent interface {
 // PodWatcher.
 type EventCallback func(context.Context, PodEvent)
 
+func podIsReady(pod *k8score.Pod) bool {
+	if pod.Status.Phase != k8score.PodRunning || pod.DeletionTimestamp != nil {
+		return false
+	}
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8score.PodReady && condition.Status == k8score.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 // CreatePod indicates that a pod has been created and now has an assigned IP
 type CreatePod struct {
 	name string
@@ -105,6 +117,11 @@ func (c *CreatePod) ResourceVersion() ResourceVersion { return c.rv }
 // ResourceVersion because this event is part of either the same
 // initial-state-dump or resync.
 func (c *CreatePod) Continues() bool { return c.continues }
+
+// IsReady indicates whether k8s considers this pod ready (and it isn't shutting down)
+func (c *CreatePod) IsReady() bool {
+	return podIsReady(c.Def)
+}
 
 // ModPod indicates a change in a pod's status or definition (anything that
 // isn't a creation or deletion)
@@ -128,6 +145,11 @@ func (m *ModPod) ResourceVersion() ResourceVersion { return m.rv }
 // ResourceVersion because this event is part of either the same
 // initial-state-dump or resync.
 func (m *ModPod) Continues() bool { return m.continues }
+
+// IsReady indicates whether k8s considers this pod ready (and it isn't shutting down)
+func (m *ModPod) IsReady() bool {
+	return podIsReady(m.Def)
+}
 
 // DeletePod indicates that a pod has been destroyed (or is shutting down) and
 // should no longer be watched.

@@ -1062,3 +1062,53 @@ func TestPodWatcherErrorRecovery(t *testing.T) {
 		})
 	}
 }
+
+func TestPodReady(t *testing.T) {
+	for _, tbl := range []struct {
+		name     string
+		pod      *k8score.Pod
+		expReady bool
+	}{
+		{
+			name:     "simple_ready",
+			pod:      genPod("abcd", "10.10.10.10", map[string]string{}, true, k8score.PodRunning),
+			expReady: true,
+		},
+		{
+			name:     "not_ready_condition",
+			pod:      genPod("abcd", "10.10.10.10", map[string]string{}, false, k8score.PodRunning),
+			expReady: false,
+		},
+		{
+			name:     "not_ready_failed",
+			pod:      genPod("abcd", "10.10.10.10", map[string]string{}, true, k8score.PodFailed),
+			expReady: false,
+		},
+		{
+			name:     "not_ready_pending",
+			pod:      genPod("abcd", "10.10.10.10", map[string]string{}, true, k8score.PodPending),
+			expReady: false,
+		},
+		{
+			name:     "not_ready_succeeded",
+			pod:      genPod("abcd", "10.10.10.10", map[string]string{}, true, k8score.PodSucceeded),
+			expReady: false,
+		},
+		{
+			name: "not_ready_deleted",
+			pod: func() *k8score.Pod {
+				p := genPod("abcd", "10.10.10.10", map[string]string{}, true, k8score.PodRunning)
+				p.DeletionTimestamp = &k8smeta.Time{}
+				return p
+			}(),
+			expReady: false,
+		},
+	} {
+		t.Run(tbl.name, func(t *testing.T) {
+			if ready := podIsReady(tbl.pod); tbl.expReady != ready {
+				t.Errorf("unexpected pod readiness: %t; expected %t", ready, tbl.expReady)
+
+			}
+		})
+	}
+}
